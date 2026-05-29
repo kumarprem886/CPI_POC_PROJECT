@@ -19,6 +19,9 @@ export const getKeystore = () => api.get('/keystore');
 export const getConfig = () => api.get('/config');
 export const saveConfig = (data) => api.post('/config', data);
 
+export const getProviders   = () => api.get('/ai/providers');
+export const testProvider   = (provider) => api.post('/ai/test-provider', { provider });
+
 export const aiGenerate = (prompt) => api.post('/ai/generate', { prompt });
 export const aiAnalyze = (error) => api.post('/ai/analyze', { error });
 export const aiOptimize = (code) => api.post('/ai/optimize', { code });

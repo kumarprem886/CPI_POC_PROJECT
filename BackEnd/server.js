@@ -107,6 +107,94 @@ function reloadClients() {
   cache.flushAll();
 }
 
+// ── Multi-provider AI layer ───────────────────────────────────────────────────
+const AI_PROVIDERS = {
+  gemini: {
+    label: 'Google Gemini',
+    models: ['gemini-2.0-flash-lite', 'gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.5-pro'],
+    keyEnv: 'GEMINI_API_KEY',
+    modelEnv: 'GEMINI_MODEL',
+    defaultModel: 'gemini-2.0-flash-lite',
+    keyHint: 'Get from aistudio.google.com/app/apikey',
+  },
+  openai: {
+    label: 'OpenAI (ChatGPT)',
+    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo', 'gpt-4-turbo'],
+    keyEnv: 'OPENAI_API_KEY',
+    modelEnv: 'OPENAI_MODEL',
+    defaultModel: 'gpt-4o-mini',
+    keyHint: 'Get from platform.openai.com/api-keys',
+  },
+  anthropic: {
+    label: 'Anthropic Claude',
+    models: ['claude-haiku-4-5', 'claude-sonnet-4-5', 'claude-opus-4-5'],
+    keyEnv: 'ANTHROPIC_API_KEY',
+    modelEnv: 'ANTHROPIC_MODEL',
+    defaultModel: 'claude-haiku-4-5',
+    keyHint: 'Get from console.anthropic.com/settings/keys',
+  },
+  ollama: {
+    label: 'Ollama (Local)',
+    models: ['llama3.2', 'llama3.1', 'mistral', 'codellama', 'phi3', 'gemma2'],
+    keyEnv: null,
+    modelEnv: 'OLLAMA_MODEL',
+    defaultModel: 'llama3.2',
+    keyHint: 'No API key needed — runs locally at localhost:11434',
+  },
+};
+
+async function callGemini(prompt) {
+  if (!model) throw new Error('Gemini not configured. Set GEMINI_API_KEY in Settings.');
+  const result = await model.generateContent(prompt);
+  return result.response.text();
+}
+
+async function callOpenAI(prompt) {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error('OpenAI not configured. Set OPENAI_API_KEY in Settings.');
+  const mdl = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+  const { data } = await axios.post('https://api.openai.com/v1/chat/completions', {
+    model: mdl,
+    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 4096,
+  }, { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 30000 });
+  return data.choices[0].message.content;
+}
+
+async function callAnthropic(prompt) {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error('Anthropic not configured. Set ANTHROPIC_API_KEY in Settings.');
+  const mdl = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5';
+  const { data } = await axios.post('https://api.anthropic.com/v1/messages', {
+    model: mdl, max_tokens: 4096,
+    messages: [{ role: 'user', content: prompt }],
+  }, {
+    headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
+    timeout: 30000,
+  });
+  return data.content[0].text;
+}
+
+async function callOllama(prompt) {
+  const base = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+  const mdl  = process.env.OLLAMA_MODEL || 'llama3.2';
+  const { data } = await axios.post(`${base}/api/generate`, {
+    model: mdl, prompt, stream: false,
+  }, { timeout: 60000 });
+  return data.response;
+}
+
+async function callAI(prompt) {
+  const provider = process.env.AI_PROVIDER || 'gemini';
+  switch (provider) {
+    case 'gemini':    return callGemini(prompt);
+    case 'openai':    return callOpenAI(prompt);
+    case 'anthropic': return callAnthropic(prompt);
+    case 'ollama':    return callOllama(prompt);
+    default: throw new Error(`Unknown AI provider: "${provider}". Valid: gemini, openai, anthropic, ollama`);
+  }
+}
+
 async function cachedGet(cacheKey, url) {
   const cached = cache.get(cacheKey);
   if (cached !== undefined) return cached;
@@ -236,97 +324,117 @@ app.get('/api/dashboard-stats', async (req, res) => {
   } catch (error) { handleError(res, error, 'GET /api/dashboard-stats'); }
 });
 
-// ── AI helpers ──────────────────────────────────────────────────────────────
-function noModel(res) {
-  return res.status(503).json({ success: false, error: 'Gemini AI not configured. Add GEMINI_API_KEY in Settings.' });
-}
-
+// ── AI helpers ────────────────────────────────────────────────────────────────
 function handleAiError(res, error) {
-  const raw = error.message || '';
+  const raw   = error.message || '';
+  const provider = process.env.AI_PROVIDER || 'gemini';
   if (raw.includes('429') || raw.includes('quota') || raw.includes('Quota')) {
-    const retryMatch = raw.match(/retryDelay.*?(\d+)s/);
-    const retrySec   = retryMatch ? retryMatch[1] : null;
-    const model      = process.env.GEMINI_MODEL || 'gemini-2.0-flash-lite';
+    const retrySec = (raw.match(/retryDelay.*?(\d+)s/) || [])[1] || null;
     return res.status(429).json({
-      success: false,
-      quotaError: true,
-      model,
-      error: `Gemini API quota exhausted for model "${model}" on this project's free tier (limit = 0). ` +
-             `This means the Google Cloud project linked to your API key has used up its daily free quota. ` +
+      success: false, quotaError: true, provider,
+      error: `${AI_PROVIDERS[provider]?.label || provider} quota exhausted. ` +
              (retrySec ? `Retry in ${retrySec}s, or ` : '') +
-             `fix: create a fresh API key at https://aistudio.google.com/app/apikey (AI Studio keys get their own free quota).`,
-      fix: 'Go to https://aistudio.google.com/app/apikey → Create API Key → paste it in Settings.',
+             `switch to a different AI provider in Settings.`,
       retryAfterSeconds: retrySec ? parseInt(retrySec) : null,
     });
   }
-  console.error('[AI Error]', raw.slice(0, 200));
-  return res.status(500).json({ success: false, error: 'AI request failed: ' + raw.slice(0, 300) });
+  if (raw.includes('401') || raw.includes('Unauthorized') || raw.includes('invalid_api_key') || raw.includes('authentication')) {
+    return res.status(401).json({ success: false, authError: true, provider,
+      error: `Invalid API key for ${AI_PROVIDERS[provider]?.label || provider}. Check your key in Settings.` });
+  }
+  if (raw.includes('ECONNREFUSED') || raw.includes('ENOTFOUND')) {
+    return res.status(503).json({ success: false, connectionError: true, provider,
+      error: provider === 'ollama'
+        ? 'Ollama is not running. Start it with: ollama serve'
+        : `Cannot reach ${AI_PROVIDERS[provider]?.label || provider} API.` });
+  }
+  console.error('[AI Error]', raw.slice(0, 300));
+  return res.status(500).json({ success: false, provider, error: raw.slice(0, 400) });
 }
+
+// GET /api/ai/providers — list all providers with status
+app.get('/api/ai/providers', (req, res) => {
+  const active = process.env.AI_PROVIDER || 'gemini';
+  const result = Object.entries(AI_PROVIDERS).map(([id, p]) => {
+    const keyConfigured = p.keyEnv ? !!process.env[p.keyEnv] : true; // ollama needs no key
+    const activeModel   = process.env[p.modelEnv] || p.defaultModel;
+    return { id, label: p.label, models: p.models, defaultModel: p.defaultModel,
+             activeModel, keyHint: p.keyHint, keyConfigured, isActive: id === active };
+  });
+  res.json({ success: true, active, providers: result });
+});
+
+// POST /api/ai/test-provider — quick test of a specific provider
+app.post('/api/ai/test-provider', async (req, res) => {
+  const { provider } = req.body;
+  if (!AI_PROVIDERS[provider]) return res.status(400).json({ success: false, error: 'Unknown provider' });
+  const prev = process.env.AI_PROVIDER;
+  process.env.AI_PROVIDER = provider;
+  try {
+    const response = await callAI('Reply with exactly: "SAP CPI AI Control Center connected."');
+    process.env.AI_PROVIDER = prev;
+    res.json({ success: true, provider, response: response.trim() });
+  } catch (err) {
+    process.env.AI_PROVIDER = prev;
+    handleAiError(res, err);
+  }
+});
+
+const PROMPTS = {
+  generate: (p) => `You are a senior SAP CPI architect.\n\nRequest: ${p}\n\n## 1. iFlow Architecture\n## 2. Sender & Receiver\n## 3. Adapter Config\n## 4. Message Processing Steps\n## 5. Security\n## 6. Error Handling\n## 7. Deployment Checklist\n## 8. Best Practices`,
+  analyze:  (e) => `You are a SAP CPI error analysis expert.\n\nError:\n${e}\n\n## 1. Root Cause\n## 2. Step-by-Step Fix\n## 3. Prevention\n## 4. SAP Notes & KBAs`,
+  optimize: (c) => `You are a SAP CPI performance expert.\n\nCode:\n${c}\n\n## 1. Issues Found\n## 2. Optimized Solution\n## 3. Performance Gain\n## 4. Best Practices Applied`,
+  chat:     (sys, hist, msg) => `${sys}\n\n${hist ? 'Conversation so far:\n' + hist + '\n\n' : ''}User: ${msg}\n\nAssistant:`,
+};
+
+const SYS_CHAT = 'You are an expert SAP CPI assistant. Help with iFlow design, adapters, troubleshooting, mappings, security, and BTP best practices. Be concise and practical.';
 
 app.post('/api/ai/generate', async (req, res) => {
   try {
     const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ success: false, error: 'prompt is required' });
-    if (!model)  return noModel(res);
-    const p = 'You are a senior SAP CPI architect with 10+ years of experience.\n\nUser Request: ' + prompt
-      + '\n\n## 1. iFlow Architecture Overview\nDescribe the overall architecture and data flow.'
-      + '\n\n## 2. Sender & Receiver Configuration\nDetail the sender and receiver adapter type, channel, and connection settings.'
-      + '\n\n## 3. Adapter Configuration Details\nProvide specific adapter settings and connection properties.'
-      + '\n\n## 4. Message Processing Steps\nList all required steps: content modifier, mapping, routing, splitter, aggregator, etc.'
-      + '\n\n## 5. Security Configuration\nSpecify authentication, encryption, certificates, and credential aliases.'
-      + '\n\n## 6. Error Handling & Exception Subprocess\nDefine error handling, dead-letter queues, alerting, and retry policies.'
-      + '\n\n## 7. Deployment Checklist\nStep-by-step guide with pre-deployment validation.'
-      + '\n\n## 8. Best Practices & Recommendations\nPerformance optimizations and pitfalls to avoid.';
-    const result = await model.generateContent(p);
-    res.json({ success: true, response: result.response.text() });
-  } catch (error) { handleAiError(res, error); }
+    const response = await callAI(PROMPTS.generate(prompt));
+    res.json({ success: true, response, provider: process.env.AI_PROVIDER || 'gemini' });
+  } catch (err) { handleAiError(res, err); }
 });
 
 app.post('/api/ai/analyze', async (req, res) => {
   try {
-    const { error: errorText } = req.body;
-    if (!errorText) return res.status(400).json({ success: false, error: 'error field is required' });
-    if (!model)    return noModel(res);
-    const p = 'You are a SAP CPI expert specializing in error analysis.\n\nError:\n' + errorText
-      + '\n\n## 1. Root Cause Analysis\nIdentify the exact root cause in the SAP CPI context.'
-      + '\n\n## 2. Step-by-Step Fix\nNumbered actionable steps to resolve this error.'
-      + '\n\n## 3. Prevention Strategy\nHow to prevent this in future iFlow designs.'
-      + '\n\n## 4. Relevant SAP Notes & KBAs\nList relevant SAP Notes, KBAs, or documentation links.';
-    const result = await model.generateContent(p);
-    res.json({ success: true, response: result.response.text() });
-  } catch (error) { handleAiError(res, error); }
+    const { error: e } = req.body;
+    if (!e) return res.status(400).json({ success: false, error: 'error field is required' });
+    const response = await callAI(PROMPTS.analyze(e));
+    res.json({ success: true, response, provider: process.env.AI_PROVIDER || 'gemini' });
+  } catch (err) { handleAiError(res, err); }
 });
 
 app.post('/api/ai/optimize', async (req, res) => {
   try {
     const { code } = req.body;
-    if (!code)   return res.status(400).json({ success: false, error: 'code field is required' });
-    if (!model)  return noModel(res);
-    const p = 'You are a SAP CPI performance expert.\n\nCode to Optimize:\n' + code
-      + '\n\n## 1. Issues Found\nList all performance issues, anti-patterns, and bugs.'
-      + '\n\n## 2. Optimized Solution\nProvide fully optimized production-ready code.'
-      + '\n\n## 3. Performance Gain Analysis\nExplain expected improvements.'
-      + '\n\n## 4. SAP CPI Best Practices Applied\nList each best practice applied.';
-    const result = await model.generateContent(p);
-    res.json({ success: true, response: result.response.text() });
-  } catch (error) { handleAiError(res, error); }
+    if (!code) return res.status(400).json({ success: false, error: 'code field is required' });
+    const response = await callAI(PROMPTS.optimize(code));
+    res.json({ success: true, response, provider: process.env.AI_PROVIDER || 'gemini' });
+  } catch (err) { handleAiError(res, err); }
 });
 
 app.post('/api/ai/chat', async (req, res) => {
   try {
     const { message, history = [] } = req.body;
     if (!message) return res.status(400).json({ success: false, error: 'message is required' });
-    if (!model)   return noModel(res);
-    const sys = 'You are an expert SAP CPI assistant helping integration developers and architects with iFlow design, adapter configuration, troubleshooting, mappings, security, and BTP ecosystem best practices. Be concise, practical, and always use SAP CPI terminology.';
-    const hist = history.slice(-10).map(h => (h.role === 'user' ? 'User' : 'Assistant') + ': ' + h.content).join('\n\n');
-    const full = sys + '\n\n' + (hist ? 'Previous conversation:\n' + hist + '\n\n' : '') + 'User: ' + message + '\n\nAssistant:';
-    const result = await model.generateContent(full);
-    res.json({ success: true, response: result.response.text() });
-  } catch (error) { handleAiError(res, error); }
+    const hist = history.slice(-10).map(h => `${h.role === 'user' ? 'User' : 'Assistant'}: ${h.content}`).join('\n\n');
+    const response = await callAI(PROMPTS.chat(SYS_CHAT, hist, message));
+    res.json({ success: true, response, provider: process.env.AI_PROVIDER || 'gemini' });
+  } catch (err) { handleAiError(res, err); }
 });
 
 // ── Config read/write ────────────────────────────────────────────────────────
-const ALLOWED_CONFIG_KEYS = ['CPI_BASE_URL', 'CPI_USERNAME', 'CPI_PASSWORD', 'GEMINI_API_KEY', 'GEMINI_MODEL', 'PORT', 'ALLOWED_ORIGINS'];
+const ALLOWED_CONFIG_KEYS = [
+  'CPI_BASE_URL', 'CPI_USERNAME', 'CPI_PASSWORD', 'PORT', 'ALLOWED_ORIGINS',
+  'AI_PROVIDER',
+  'GEMINI_API_KEY', 'GEMINI_MODEL',
+  'OPENAI_API_KEY', 'OPENAI_MODEL',
+  'ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL',
+  'OLLAMA_BASE_URL', 'OLLAMA_MODEL',
+];
 
 app.get('/api/config', (req, res) => {
   try {
@@ -338,9 +446,16 @@ app.get('/api/config', (req, res) => {
         CPI_BASE_URL:     parsed.CPI_BASE_URL     || process.env.CPI_BASE_URL     || '',
         CPI_USERNAME:     parsed.CPI_USERNAME     || process.env.CPI_USERNAME     || '',
         CPI_PASSWORD:     parsed.CPI_PASSWORD     || process.env.CPI_PASSWORD     || '',
+        AI_PROVIDER:      parsed.AI_PROVIDER      || process.env.AI_PROVIDER      || 'gemini',
         GEMINI_API_KEY:   parsed.GEMINI_API_KEY   || process.env.GEMINI_API_KEY   || '',
-        GEMINI_MODEL:     parsed.GEMINI_MODEL     || process.env.GEMINI_MODEL     || 'gemini-1.5-flash',
-        PORT:             parsed.PORT             || process.env.PORT             || '8080',
+        GEMINI_MODEL:     parsed.GEMINI_MODEL     || process.env.GEMINI_MODEL     || 'gemini-2.0-flash-lite',
+        OPENAI_API_KEY:   parsed.OPENAI_API_KEY   || process.env.OPENAI_API_KEY   || '',
+        OPENAI_MODEL:     parsed.OPENAI_MODEL     || process.env.OPENAI_MODEL     || 'gpt-4o-mini',
+        ANTHROPIC_API_KEY:parsed.ANTHROPIC_API_KEY|| process.env.ANTHROPIC_API_KEY|| '',
+        ANTHROPIC_MODEL:  parsed.ANTHROPIC_MODEL  || process.env.ANTHROPIC_MODEL  || 'claude-haiku-4-5',
+        OLLAMA_BASE_URL:  parsed.OLLAMA_BASE_URL  || process.env.OLLAMA_BASE_URL  || 'http://localhost:11434',
+        OLLAMA_MODEL:     parsed.OLLAMA_MODEL     || process.env.OLLAMA_MODEL     || 'llama3.2',
+        PORT:             parsed.PORT             || process.env.PORT             || '8081',
         ALLOWED_ORIGINS:  parsed.ALLOWED_ORIGINS  || process.env.ALLOWED_ORIGINS  || '',
       },
     });
