@@ -106,9 +106,12 @@ This app supports 4 AI providers. Switch between them from **Settings → AI Pro
 | Provider | Key needed | Free tier | Get key |
 |---|---|---|---|
 | **Google Gemini** | Yes | ✅ 1500 req/day | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) |
+| **Groq** | Yes | ✅ Generous free tier | [console.groq.com/keys](https://console.groq.com/keys) |
 | **OpenAI** | Yes | ❌ Pay-as-you-go | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
 | **Anthropic Claude** | Yes | ❌ Pay-as-you-go | [console.anthropic.com](https://console.anthropic.com/settings/keys) |
 | **Ollama (local)** | No | ✅ Free forever | [ollama.com](https://ollama.com) |
+
+> **Groq tip:** Uses LPU (Language Processing Unit) hardware — responses are significantly faster than GPU-based providers. Great free tier, no credit card needed.
 
 > **Gemini tip:** If you get a quota error, create a key in a **new project** at AI Studio — each project gets its own free quota.
 

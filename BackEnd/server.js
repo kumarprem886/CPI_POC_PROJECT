@@ -133,6 +133,14 @@ const AI_PROVIDERS = {
     defaultModel: 'claude-haiku-4-5',
     keyHint: 'Get from console.anthropic.com/settings/keys',
   },
+  groq: {
+    label: 'Groq (Ultra-fast)',
+    models: ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768', 'gemma2-9b-it', 'llama3-70b-8192'],
+    keyEnv: 'GROQ_API_KEY',
+    modelEnv: 'GROQ_MODEL',
+    defaultModel: 'llama-3.3-70b-versatile',
+    keyHint: 'Free tier available — get from console.groq.com/keys',
+  },
   ollama: {
     label: 'Ollama (Local)',
     models: ['llama3.2', 'llama3.1', 'mistral', 'codellama', 'phi3', 'gemma2'],
@@ -175,6 +183,19 @@ async function callAnthropic(prompt) {
   return data.content[0].text;
 }
 
+async function callGroq(prompt) {
+  const key = process.env.GROQ_API_KEY;
+  if (!key) throw new Error('Groq not configured. Set GROQ_API_KEY in Settings.');
+  const mdl = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+  const { data } = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+    model: mdl,
+    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 4096,
+    temperature: 0.7,
+  }, { headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, timeout: 30000 });
+  return data.choices[0].message.content;
+}
+
 async function callOllama(prompt) {
   const base = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
   const mdl  = process.env.OLLAMA_MODEL || 'llama3.2';
@@ -190,8 +211,9 @@ async function callAI(prompt) {
     case 'gemini':    return callGemini(prompt);
     case 'openai':    return callOpenAI(prompt);
     case 'anthropic': return callAnthropic(prompt);
+    case 'groq':      return callGroq(prompt);
     case 'ollama':    return callOllama(prompt);
-    default: throw new Error(`Unknown AI provider: "${provider}". Valid: gemini, openai, anthropic, ollama`);
+    default: throw new Error(`Unknown AI provider: "${provider}". Valid: gemini, openai, anthropic, groq, ollama`);
   }
 }
 
@@ -433,6 +455,7 @@ const ALLOWED_CONFIG_KEYS = [
   'GEMINI_API_KEY', 'GEMINI_MODEL',
   'OPENAI_API_KEY', 'OPENAI_MODEL',
   'ANTHROPIC_API_KEY', 'ANTHROPIC_MODEL',
+  'GROQ_API_KEY', 'GROQ_MODEL',
   'OLLAMA_BASE_URL', 'OLLAMA_MODEL',
 ];
 
@@ -453,6 +476,8 @@ app.get('/api/config', (req, res) => {
         OPENAI_MODEL:     parsed.OPENAI_MODEL     || process.env.OPENAI_MODEL     || 'gpt-4o-mini',
         ANTHROPIC_API_KEY:parsed.ANTHROPIC_API_KEY|| process.env.ANTHROPIC_API_KEY|| '',
         ANTHROPIC_MODEL:  parsed.ANTHROPIC_MODEL  || process.env.ANTHROPIC_MODEL  || 'claude-haiku-4-5',
+        GROQ_API_KEY:     parsed.GROQ_API_KEY     || process.env.GROQ_API_KEY     || '',
+        GROQ_MODEL:       parsed.GROQ_MODEL       || process.env.GROQ_MODEL       || 'llama-3.3-70b-versatile',
         OLLAMA_BASE_URL:  parsed.OLLAMA_BASE_URL  || process.env.OLLAMA_BASE_URL  || 'http://localhost:11434',
         OLLAMA_MODEL:     parsed.OLLAMA_MODEL     || process.env.OLLAMA_MODEL     || 'llama3.2',
         PORT:             parsed.PORT             || process.env.PORT             || '8081',

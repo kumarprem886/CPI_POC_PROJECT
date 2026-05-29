@@ -24,6 +24,11 @@ const PROVIDER_META = {
     activeBg: 'bg-orange-600', emoji: '🟠', docsUrl: 'https://console.anthropic.com/settings/keys',
     desc: 'Claude Haiku, Sonnet, Opus. Excellent reasoning.',
   },
+  groq: {
+    label: 'Groq (Ultra-fast)', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200',
+    activeBg: 'bg-red-600', emoji: '⚡', docsUrl: 'https://console.groq.com/keys',
+    desc: 'LPU inference — fastest responses, generous free tier.',
+  },
   ollama: {
     label: 'Ollama (Local)', color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200',
     activeBg: 'bg-purple-600', emoji: '🟣', docsUrl: 'https://ollama.com',
@@ -39,8 +44,8 @@ const CPI_FIELDS = [
   { key:'ALLOWED_ORIGINS', label:'Allowed Origins',  type:'text',     placeholder:'http://localhost:5174', hint:'Comma-separated CORS origins' },
 ];
 
-const MODEL_KEYS = { gemini:'GEMINI_MODEL', openai:'OPENAI_MODEL', anthropic:'ANTHROPIC_MODEL', ollama:'OLLAMA_MODEL' };
-const KEY_KEYS   = { gemini:'GEMINI_API_KEY', openai:'OPENAI_API_KEY', anthropic:'ANTHROPIC_API_KEY' };
+const MODEL_KEYS = { gemini:'GEMINI_MODEL', openai:'OPENAI_MODEL', anthropic:'ANTHROPIC_MODEL', groq:'GROQ_MODEL', ollama:'OLLAMA_MODEL' };
+const KEY_KEYS   = { gemini:'GEMINI_API_KEY', openai:'OPENAI_API_KEY', anthropic:'ANTHROPIC_API_KEY', groq:'GROQ_API_KEY' };
 
 function StatusBadge({ ok, label }) {
   if (ok === null) return <span className="inline-flex items-center gap-1 text-xs text-slate-400"><Loader2 size={11} className="animate-spin" />Checking</span>;
