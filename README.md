@@ -1,307 +1,251 @@
 # SAP CPI AI Control Center v2.0
 
-A full-stack AI-powered dashboard to manage, monitor, and generate SAP CPI integrations.
+A full-stack AI-powered dashboard to manage, monitor, and generate SAP CPI integrations — built with React, Node.js, and multi-provider AI (Gemini, OpenAI, Claude, Ollama).
 
 ---
 
-## Tech Stack
+## ⚡ After Cloning — First Thing To Do
 
-| Layer     | Technology                                      |
-|-----------|-------------------------------------------------|
-| Backend   | Node.js, Express, Axios, Helmet, Morgan         |
-| AI        | Google Gemini 2.0 Flash                         |
-| Frontend  | React 18, Vite 5, TailwindCSS 3, Framer Motion  |
-| Charts    | Recharts                                        |
-| Icons     | Lucide React                                    |
+> The `.env` file is **not included** in the repo (it contains credentials). You must create it before starting the app.
+
+### Step 1 — Create your `.env` file
+
+```bash
+cd BackEnd
+copy .env.example .env        # Windows
+# or
+cp .env.example .env           # Mac/Linux
+```
+
+### Step 2 — Open `BackEnd/.env` and fill in your details
+
+```env
+PORT=8081
+
+# ── SAP CPI Tenant ─────────────────────────────────────────────────
+CPI_BASE_URL=https://your-tenant.it-cpitrial05.cfapps.us10-001.hana.ondemand.com
+CPI_USERNAME=your_email@company.com
+CPI_PASSWORD=your_password_here
+
+# ── AI Provider (pick one: gemini / openai / anthropic / ollama) ───
+AI_PROVIDER=gemini
+
+# Google Gemini (free tier — get key at aistudio.google.com/app/apikey)
+GEMINI_API_KEY=AIzaSy...
+GEMINI_MODEL=gemini-2.0-flash-lite
+
+# OpenAI — optional (get key at platform.openai.com/api-keys)
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4o-mini
+
+# Anthropic Claude — optional (get key at console.anthropic.com)
+ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_MODEL=claude-haiku-4-5
+
+# Ollama local — optional (no key needed, run: ollama serve)
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2
+
+# ── CORS ───────────────────────────────────────────────────────────
+ALLOWED_ORIGINS=http://localhost:5174
+```
+
+### Step 3 — Install & run
+
+**Terminal 1 — Backend:**
+```bash
+cd BackEnd
+npm install
+node server.js
+# ✅ SAP CPI AI Backend running on port 8081
+```
+
+**Terminal 2 — Frontend:**
+```bash
+cd FrontEnd
+npm install
+npm run dev
+# ➜  http://localhost:5174
+```
+
+Open **http://localhost:5174** in your browser.
 
 ---
 
-## Project Structure
+## 🔧 Updating Connection Details Later (Two Ways)
+
+### Option A — Settings UI (recommended, no restart needed)
+
+1. Open the app → click **Settings** in the sidebar
+2. Edit any field (CPI URL, username, password, AI keys)
+3. Click **Save & Reload** — changes apply instantly without restarting the server
+
+### Option B — Edit the `.env` file directly
+
+1. Open `BackEnd/.env` in any text editor
+2. Update the values
+3. **Restart the backend**: `Ctrl+C` → `node server.js`
+
+---
+
+## 🌐 Ports
+
+| Service  | Default Port | How to change |
+|----------|-------------|---------------|
+| Frontend | **5174**    | Edit `server.port` in `FrontEnd/vite.config.js` |
+| Backend  | **8081**    | Edit `PORT` in `BackEnd/.env` + update proxy target in `vite.config.js` |
+
+If port 5174 or 8081 is already taken, change both values and restart.
+
+---
+
+## 🤖 AI Providers
+
+This app supports 4 AI providers. Switch between them from **Settings → AI Providers** without restarting.
+
+| Provider | Key needed | Free tier | Get key |
+|---|---|---|---|
+| **Google Gemini** | Yes | ✅ 1500 req/day | [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) |
+| **OpenAI** | Yes | ❌ Pay-as-you-go | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
+| **Anthropic Claude** | Yes | ❌ Pay-as-you-go | [console.anthropic.com](https://console.anthropic.com/settings/keys) |
+| **Ollama (local)** | No | ✅ Free forever | [ollama.com](https://ollama.com) |
+
+> **Gemini tip:** If you get a quota error, create a key in a **new project** at AI Studio — each project gets its own free quota.
+
+---
+
+## 📁 Project Structure
 
 ```
 CPI_POC_PRO/
 ├── BackEnd/
-│   ├── server.js          ← Express API server
+│   ├── server.js          ← Express API + multi-AI router
 │   ├── package.json
-│   ├── .env               ← Your credentials (never commit this)
-│   └── .env.example       ← Template for new setups
+│   ├── .env               ← YOUR credentials (not in repo, create from .env.example)
+│   └── .env.example       ← Template — safe to commit
 └── FrontEnd/
-    ├── index.html
-    ├── package.json
-    ├── vite.config.js
-    ├── tailwind.config.js
-    ├── postcss.config.js
-    └── src/
-        ├── App.jsx            ← Root layout + sidebar + toast system
-        ├── api.js             ← All API functions (axios client)
-        ├── main.jsx
-        ├── index.css
-        └── pages/
-            ├── Dashboard.jsx      ← KPIs, charts, recent messages
-            ├── AIAssistant.jsx    ← Generate / Analyze / Optimize / Chat
-            ├── IFlowStudio.jsx    ← Browse packages and iFlows
-            ├── Monitoring.jsx     ← Message processing logs
-            ├── Security.jsx       ← Credentials and keystore
-            └── Settings.jsx       ← Connection status and config
+    ├── vite.config.js     ← Port + proxy config
+    ├── src/
+    │   ├── App.jsx            ← Layout, sidebar, login guard, toasts
+    │   ├── api.js             ← All API calls
+    │   ├── users.js           ← localStorage user store
+    │   └── pages/
+    │       ├── Login.jsx          ← Login screen
+    │       ├── Dashboard.jsx      ← KPIs, charts, AI command center
+    │       ├── AIAssistant.jsx    ← Generate / Analyze / Optimize / Chat
+    │       ├── IFlowStudio.jsx    ← Browse packages & iFlows
+    │       ├── Monitoring.jsx     ← Message processing logs
+    │       ├── Security.jsx       ← Credentials & keystore
+    │       ├── Settings.jsx       ← CPI config + AI provider switcher
+    │       └── UserManagement.jsx ← Add / edit / delete users
 ```
 
 ---
 
-## Prerequisites
+## 🔑 Login
 
-Make sure these are installed on your machine before starting.
+Default admin credentials (created on first run):
 
-| Tool      | Version  | Check command       | Download                     |
-|-----------|----------|---------------------|------------------------------|
-| Node.js   | 18+      | `node -v`           | https://nodejs.org           |
-| npm       | 9+       | `npm -v`            | (comes with Node)            |
-| VS Code   | any      | `code --version`    | https://code.visualstudio.com |
+| Field | Value |
+|---|---|
+| Email | `prem.am.kumar@accenture.com` |
+| Password | `Admin@123` |
 
----
-
-## First-Time Setup
-
-### 1. Open the project in VS Code
-
-```
-File → Open Folder → select the CPI_POC_PRO folder
-```
-
-Or from terminal:
-```bash
-code "C:\path\to\CPI_POC_PRO"
-```
+Change or add users at **Settings → User Management**.
 
 ---
 
-### 2. Install Backend dependencies
-
-Open a terminal in VS Code (`Ctrl + backtick`) and run:
-
-```bash
-cd BackEnd
-npm install
-```
-
-Packages installed:
-- `express` — web server
-- `cors` — cross-origin requests
-- `helmet` — security headers
-- `morgan` — HTTP request logging
-- `express-rate-limit` — rate limiting
-- `node-cache` — in-memory caching (60s TTL)
-- `axios` — HTTP client for CPI API calls
-- `@google/generative-ai` — Gemini AI SDK
-- `dotenv` — load .env variables
-
----
-
-### 3. Configure environment variables
-
-Your `.env` file is already set up. To update it:
-
-```bash
-# BackEnd/.env
-PORT=8080
-GEMINI_API_KEY=your_gemini_api_key_here
-CPI_BASE_URL=https://your-tenant.it-cpitrial05.cfapps.us10-001.hana.ondemand.com
-CPI_USERNAME=your_email@company.com
-CPI_PASSWORD=your_password_here
-ALLOWED_ORIGINS=http://localhost:5173
-```
-
----
-
-### 4. Install Frontend dependencies
-
-Open a **second terminal** in VS Code (click the `+` icon in the terminal panel):
-
-```bash
-cd FrontEnd
-npm install
-```
-
-Packages installed:
-- `react` + `react-dom` — UI framework
-- `axios` — API calls
-- `framer-motion` — animations
-- `lucide-react` — icons
-- `recharts` — charts
-- `vite` — build tool
-- `tailwindcss` — utility CSS
-
----
-
-## Running the App
-
-You need **two terminals open at the same time**.
-
-### Terminal 1 — Start Backend
-
-```bash
-cd BackEnd
-node server.js
-```
-
-Expected output:
-```
-✅ SAP CPI AI Backend running on port 8080
-```
-
-**For auto-restart on file save (development):**
-```bash
-node --watch server.js
-```
-
----
-
-### Terminal 2 — Start Frontend
-
-```bash
-cd FrontEnd
-npm run dev
-```
-
-Expected output:
-```
-VITE v5.x  ready in xxxx ms
-➜  Local:   http://localhost:5173/
-```
-
-Then open your browser at: **http://localhost:5173**
-
----
-
-## All Console Commands Reference
+## 📋 All Commands
 
 ### Backend
-
-| Command                    | Description                             |
-|----------------------------|-----------------------------------------|
-| `npm install`              | Install all backend dependencies        |
-| `node server.js`           | Start backend server (production)       |
-| `node --watch server.js`   | Start with auto-restart on file change  |
-| `npm start`                | Same as `node server.js`                |
+```bash
+cd BackEnd
+npm install              # Install dependencies
+node server.js           # Start server
+node --watch server.js   # Start with auto-restart on save
+```
 
 ### Frontend
-
-| Command          | Description                                  |
-|------------------|----------------------------------------------|
-| `npm install`    | Install all frontend dependencies            |
-| `npm run dev`    | Start dev server at http://localhost:5173    |
-| `npm run build`  | Build for production (outputs to dist/)      |
-| `npm run preview`| Preview the production build locally         |
-
-### Verify both servers are running
-
-```bash
-# Test backend health
-curl http://localhost:8080/api/health
-
-# Or open in browser
-start http://localhost:5173
-```
-
----
-
-## API Endpoints
-
-| Method | Route                              | Description                        |
-|--------|------------------------------------|------------------------------------|
-| GET    | `/api/health`                      | CPI + AI connection status         |
-| GET    | `/api/dashboard-stats`             | KPI summary (packages, iFlows, messages) |
-| GET    | `/api/packages`                    | List all integration packages      |
-| GET    | `/api/packages/:id/iflows`         | List iFlows in a package           |
-| GET    | `/api/runtime-artifacts`           | Deployed runtime artifacts         |
-| GET    | `/api/messages`                    | Message processing logs            |
-| GET    | `/api/credentials`                 | User credentials list              |
-| GET    | `/api/keystore`                    | Keystore entries                   |
-| POST   | `/api/ai/generate`                 | Generate iFlow design with AI      |
-| POST   | `/api/ai/analyze`                  | Analyze an error with AI           |
-| POST   | `/api/ai/optimize`                 | Optimize code/mapping with AI      |
-| POST   | `/api/ai/chat`                     | Conversational AI assistant        |
-
-**Query params for `/api/messages`:**
-```
-?top=20          → number of results (default 20)
-?status=FAILED   → filter by status (COMPLETED, FAILED, PROCESSING)
-?integrationFlowName=MyFlow  → filter by iFlow name
-```
-
-**Query params for `/api/packages`:**
-```
-?search=salesforce   → filter packages by name/id
-?top=50              → number of results (default 50)
-```
-
----
-
-## Rate Limits
-
-| Endpoint      | Limit              |
-|---------------|--------------------|
-| `/api/*`      | 100 requests / 15 min |
-| `/api/ai/*`   | 10 requests / 1 min   |
-
----
-
-## Pages Overview
-
-| Page          | What it does                                                   |
-|---------------|----------------------------------------------------------------|
-| Dashboard     | Live KPI cards, message trend chart, runtime status pie chart, recent logs |
-| AI Assistant  | 4 modes: Generate iFlow, Analyze Error, Optimize Code, Chat    |
-| iFlow Studio  | Browse packages, search, expand to see iFlows with status      |
-| Monitoring    | Message processing logs with status filters and auto-refresh   |
-| Security      | User credentials and keystore entries (read-only)              |
-| Settings      | Connection health check, environment config reference          |
-
----
-
-## Stopping the Servers
-
-In each terminal press:
-```
-Ctrl + C
-```
-
----
-
-## Troubleshooting
-
-**Backend won't start:**
-```bash
-# Check Node version (needs 18+)
-node -v
-
-# Re-install dependencies
-cd BackEnd
-rm -rf node_modules
-npm install
-```
-
-**Frontend won't start:**
 ```bash
 cd FrontEnd
-rm -rf node_modules
-npm install
-npm run dev
+npm install              # Install dependencies
+npm run dev              # Start dev server → http://localhost:5174
+npm run build            # Build for production
+npm run preview          # Preview production build
 ```
-
-**CPI connection shows "Disconnected":**
-- Check `.env` values (URL, username, password)
-- Make sure you're on VPN if your CPI tenant requires it
-- Test manually: open `http://localhost:8080/api/health` in browser
-
-**Gemini AI not responding:**
-- Check `GEMINI_API_KEY` in `.env`
-- Regenerate key at: https://aistudio.google.com/app/apikey
-- AI is rate-limited to 10 requests/min
 
 ---
 
-## Security Notes
+## 🌍 API Endpoints
 
-- Never push `.env` to GitHub — add it to `.gitignore`
-- The `.env.example` file is safe to commit (no real credentials)
-- All CPI passwords are only used server-side — never exposed to the browser
+| Method | Route | Description |
+|---|---|---|
+| GET | `/api/health` | Backend + CPI + AI status |
+| GET | `/api/config` | Read current `.env` config |
+| POST | `/api/config` | Update config + hot-reload |
+| GET | `/api/dashboard-stats` | KPI summary |
+| GET | `/api/packages` | Integration packages |
+| GET | `/api/packages/:id/iflows` | iFlows in a package |
+| GET | `/api/runtime-artifacts` | Deployed runtime artifacts |
+| GET | `/api/messages` | Message processing logs |
+| GET | `/api/credentials` | User credentials |
+| GET | `/api/keystore` | Keystore entries |
+| GET | `/api/ai/providers` | List AI providers + status |
+| POST | `/api/ai/test-provider` | Test a specific AI provider |
+| POST | `/api/ai/generate` | Generate iFlow with AI |
+| POST | `/api/ai/analyze` | Analyze error with AI |
+| POST | `/api/ai/optimize` | Optimize code with AI |
+| POST | `/api/ai/chat` | Conversational AI |
+
+---
+
+## 🚀 Pages
+
+| Page | What it does |
+|---|---|
+| **Dashboard** | KPIs, AI Command Center, charts, alerts, quick actions |
+| **AI Assistant** | Generate iFlow / Analyze Error / Optimize Code / Chat |
+| **iFlow Studio** | Browse packages, search, expand iFlows with status |
+| **Monitoring** | Live message logs, filter by status, auto-refresh |
+| **Security** | User credentials + keystore entries (read-only) |
+| **Settings** | CPI config + AI provider switcher (Gemini/OpenAI/Claude/Ollama) |
+| **User Management** | Add, edit, delete users with role-based access |
+
+---
+
+## 🛠 Troubleshooting
+
+**"CPI Disconnected" on dashboard:**
+- Check `CPI_BASE_URL`, `CPI_USERNAME`, `CPI_PASSWORD` in `BackEnd/.env`
+- Are you on VPN? Some tenants require it
+- Test: open `http://localhost:8081/api/health` in browser
+
+**AI quota error:**
+- Go to [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)
+- Create a key in a **new project** (each project gets free quota)
+- Paste the new key in **Settings → AI Providers → Gemini**
+- Or switch to Ollama (free, local, no quota)
+
+**Port already in use:**
+```bash
+# Change backend port in BackEnd/.env
+PORT=8082
+
+# Change frontend port in FrontEnd/vite.config.js
+server: { port: 5175, ... target: 'http://localhost:8082' }
+```
+
+**node_modules missing / install errors:**
+```bash
+cd BackEnd  && rm -rf node_modules && npm install
+cd FrontEnd && rm -rf node_modules && npm install
+```
+
+---
+
+## 🔒 Security Notes
+
+- `BackEnd/.env` is in `.gitignore` — your credentials are **never pushed to GitHub**
+- `BackEnd/.env.example` has no real credentials — safe to commit
+- All CPI credentials are used server-side only — never sent to the browser
+- User passwords are stored in browser `localStorage` — for local/team use only
