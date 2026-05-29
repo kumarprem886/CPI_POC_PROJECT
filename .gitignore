@@ -1,0 +1,11 @@
+# Credentials — never commit these
+BackEnd/.env
+BackEnd/node_modules/
+FrontEnd/node_modules/
+FrontEnd/dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+*.log
