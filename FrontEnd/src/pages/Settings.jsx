@@ -9,31 +9,17 @@ import { getHealth, getConfig, saveConfig, getProviders, testProvider } from '..
 
 // ─── Provider meta ────────────────────────────────────────────────────────────
 const PROVIDER_META = {
-  gemini: {
-    label: 'Google Gemini', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-200',
-    activeBg: 'bg-blue-600', emoji: '🔵', docsUrl: 'https://aistudio.google.com/app/apikey',
-    desc: 'Fast, free tier available via AI Studio.',
-  },
-  openai: {
-    label: 'OpenAI (ChatGPT)', color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-200',
-    activeBg: 'bg-green-600', emoji: '🟢', docsUrl: 'https://platform.openai.com/api-keys',
-    desc: 'GPT-4o and GPT-4o-mini. Pay-as-you-go.',
-  },
-  anthropic: {
-    label: 'Anthropic Claude', color: 'text-orange-600', bg: 'bg-orange-50', border: 'border-orange-200',
-    activeBg: 'bg-orange-600', emoji: '🟠', docsUrl: 'https://console.anthropic.com/settings/keys',
-    desc: 'Claude Haiku, Sonnet, Opus. Excellent reasoning.',
-  },
-  groq: {
-    label: 'Groq (Ultra-fast)', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-200',
-    activeBg: 'bg-red-600', emoji: '⚡', docsUrl: 'https://console.groq.com/keys',
-    desc: 'LPU inference — fastest responses, generous free tier.',
-  },
-  ollama: {
-    label: 'Ollama (Local)', color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-200',
-    activeBg: 'bg-purple-600', emoji: '🟣', docsUrl: 'https://ollama.com',
-    desc: 'Free, runs locally. No API key needed. Privacy-first.',
-  },
+  gemini:      { label:'Google Gemini',          emoji:'🔵', free:true,  color:'text-blue-600',    bg:'bg-blue-50',    activeBg:'bg-blue-600',    docsUrl:'https://aistudio.google.com/app/apikey',         desc:'Free tier via AI Studio. Overall best free option.' },
+  groq:        { label:'Groq',                   emoji:'⚡', free:true,  color:'text-red-600',     bg:'bg-red-50',     activeBg:'bg-red-600',     docsUrl:'https://console.groq.com/keys',                  desc:'Ultra-fast LPU inference. Generous free tier.' },
+  openrouter:  { label:'OpenRouter',             emoji:'🔀', free:true,  color:'text-violet-600',  bg:'bg-violet-50',  activeBg:'bg-violet-600',  docsUrl:'https://openrouter.ai/keys',                     desc:'Access many free models (Llama, Mistral, Phi) via one API.' },
+  huggingface: { label:'Hugging Face',           emoji:'🤗', free:true,  color:'text-yellow-600',  bg:'bg-yellow-50',  activeBg:'bg-yellow-600',  docsUrl:'https://huggingface.co/settings/tokens',         desc:'Open-source models. Free inference API.' },
+  mistral:     { label:'Mistral AI',             emoji:'💨', free:true,  color:'text-cyan-600',    bg:'bg-cyan-50',    activeBg:'bg-cyan-600',    docsUrl:'https://console.mistral.ai/api-keys',            desc:'Best for coding and reasoning. Free tier available.' },
+  nvidia:      { label:'NVIDIA NIM',             emoji:'🟩', free:true,  color:'text-green-700',   bg:'bg-green-50',   activeBg:'bg-green-700',   docsUrl:'https://build.nvidia.com',                       desc:'Strong open models on NVIDIA hardware. Free tier.' },
+  cohere:      { label:'Cohere',                 emoji:'🔷', free:true,  color:'text-sky-600',     bg:'bg-sky-50',     activeBg:'bg-sky-600',     docsUrl:'https://dashboard.cohere.com/api-keys',          desc:'Great for embeddings and RAG. Free tier.' },
+  cloudflare:  { label:'Cloudflare Workers AI',  emoji:'🌥️', free:true,  color:'text-orange-600',  bg:'bg-orange-50',  activeBg:'bg-orange-600',  docsUrl:'https://dash.cloudflare.com',                    desc:'Serverless AI on Cloudflare edge. Free tier.' },
+  openai:      { label:'OpenAI (ChatGPT)',        emoji:'🟢', free:false, color:'text-emerald-600', bg:'bg-emerald-50', activeBg:'bg-emerald-600', docsUrl:'https://platform.openai.com/api-keys',           desc:'GPT-4o and GPT-4o-mini. Pay-as-you-go.' },
+  anthropic:   { label:'Anthropic Claude',        emoji:'🟠', free:false, color:'text-orange-600',  bg:'bg-orange-50',  activeBg:'bg-orange-600',  docsUrl:'https://console.anthropic.com/settings/keys',   desc:'Claude Haiku, Sonnet, Opus. Excellent reasoning.' },
+  ollama:      { label:'Ollama (Local)',           emoji:'🟣', free:true,  color:'text-purple-600',  bg:'bg-purple-50',  activeBg:'bg-purple-600',  docsUrl:'https://ollama.com',                             desc:'Free forever, runs locally. No key needed. Privacy-first.' },
 };
 
 const CPI_FIELDS = [
@@ -44,8 +30,18 @@ const CPI_FIELDS = [
   { key:'ALLOWED_ORIGINS', label:'Allowed Origins',  type:'text',     placeholder:'http://localhost:5174', hint:'Comma-separated CORS origins' },
 ];
 
-const MODEL_KEYS = { gemini:'GEMINI_MODEL', openai:'OPENAI_MODEL', anthropic:'ANTHROPIC_MODEL', groq:'GROQ_MODEL', ollama:'OLLAMA_MODEL' };
-const KEY_KEYS   = { gemini:'GEMINI_API_KEY', openai:'OPENAI_API_KEY', anthropic:'ANTHROPIC_API_KEY', groq:'GROQ_API_KEY' };
+const MODEL_KEYS = {
+  gemini:'GEMINI_MODEL', openai:'OPENAI_MODEL', anthropic:'ANTHROPIC_MODEL',
+  groq:'GROQ_MODEL', openrouter:'OPENROUTER_MODEL', huggingface:'HUGGINGFACE_MODEL',
+  mistral:'MISTRAL_MODEL', nvidia:'NVIDIA_MODEL', cohere:'COHERE_MODEL',
+  cloudflare:'CLOUDFLARE_MODEL', ollama:'OLLAMA_MODEL',
+};
+const KEY_KEYS = {
+  gemini:'GEMINI_API_KEY', openai:'OPENAI_API_KEY', anthropic:'ANTHROPIC_API_KEY',
+  groq:'GROQ_API_KEY', openrouter:'OPENROUTER_API_KEY', huggingface:'HUGGINGFACE_API_KEY',
+  mistral:'MISTRAL_API_KEY', nvidia:'NVIDIA_API_KEY', cohere:'COHERE_API_KEY',
+  cloudflare:'CLOUDFLARE_API_KEY',
+};
 
 function StatusBadge({ ok, label }) {
   if (ok === null) return <span className="inline-flex items-center gap-1 text-xs text-slate-400"><Loader2 size={11} className="animate-spin" />Checking</span>;
@@ -68,23 +64,26 @@ function ProviderCard({ id, providerData, config, onSave, addToast, isActive }) 
 
   const configured = id === 'ollama' ? true : !!apiKey;
 
-  const handleSetActive = async () => {
-    setSaving(true);
-    const updates = { AI_PROVIDER: id };
+  const [cfAccountId, setCfAccountId] = useState(config.CLOUDFLARE_ACCOUNT_ID || '');
+
+  const buildUpdates = (withProvider = false) => {
+    const updates = withProvider ? { AI_PROVIDER: id } : {};
     if (KEY_KEYS[id] && apiKey) updates[KEY_KEYS[id]] = apiKey;
     if (MODEL_KEYS[id] && model) updates[MODEL_KEYS[id]] = model;
     if (id === 'ollama' && baseUrl) updates.OLLAMA_BASE_URL = baseUrl;
-    await onSave(updates);
+    if (id === 'cloudflare' && cfAccountId) updates.CLOUDFLARE_ACCOUNT_ID = cfAccountId;
+    return updates;
+  };
+
+  const handleSetActive = async () => {
+    setSaving(true);
+    await onSave(buildUpdates(true));
     setSaving(false);
   };
 
   const handleSaveKey = async () => {
     setSaving(true);
-    const updates = {};
-    if (KEY_KEYS[id] && apiKey) updates[KEY_KEYS[id]] = apiKey;
-    if (MODEL_KEYS[id] && model) updates[MODEL_KEYS[id]] = model;
-    if (id === 'ollama' && baseUrl) updates.OLLAMA_BASE_URL = baseUrl;
-    await onSave(updates);
+    await onSave(buildUpdates(false));
     setSaving(false);
     setTestResult(null);
   };
@@ -115,6 +114,7 @@ function ProviderCard({ id, providerData, config, onSave, addToast, isActive }) 
           <div className="flex items-center gap-2 flex-wrap">
             <span className={`text-sm font-bold ${meta.color}`}>{meta.label}</span>
             {isActive && <span className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded-full font-medium flex items-center gap-1"><Zap size={9}/> Active</span>}
+            {meta.free && <span className="text-xs bg-green-100 text-green-700 border border-green-200 px-1.5 py-0.5 rounded font-semibold">FREE</span>}
             {configured && !isActive && <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">Configured</span>}
           </div>
           <div className="text-xs text-slate-400 mt-0.5 truncate">{meta.desc}</div>
@@ -159,6 +159,17 @@ function ProviderCard({ id, providerData, config, onSave, addToast, isActive }) 
                       {showKey ? <EyeOff size={13}/> : <Eye size={13}/>}
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* Cloudflare Account ID */}
+              {id === 'cloudflare' && (
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1.5">Account ID <span className="text-red-500">*</span></label>
+                  <input value={cfAccountId} onChange={e => setCfAccountId(e.target.value)}
+                    placeholder="e.g. abc123def456..."
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-mono text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+                  <p className="text-xs text-slate-400 mt-1">Found at dash.cloudflare.com → select any domain → right sidebar</p>
                 </div>
               )}
 
